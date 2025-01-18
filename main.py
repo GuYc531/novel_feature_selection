@@ -20,7 +20,7 @@ from xgboost import XGBClassifier
 from sklearn.metrics import confusion_matrix, precision_score, recall_score, f1_score, accuracy_score, \
     roc_curve, roc_auc_score, log_loss, auc, RocCurveDisplay
 import configs
-from feature_selection import feature_selection_by_importance
+from feature_selection import FeatureSelectionByImportance
 
 # os.environ["PATH"] += os.pathsep + 'C:/Program Files (x86)/Graphviz/bin/'
 data_dir = r'data/'
@@ -105,7 +105,7 @@ models = [xgboost_model,
 
 model = random_forest_model
 scores = ['roc-auc']
-quantiles_number = 10
+quantiles_number = 8
 
 # for model in models:
 # first we fit the model with all features to get general feature importance
@@ -118,23 +118,11 @@ n_splits = 5
 cv = StratifiedKFold(n_splits=n_splits, shuffle=shuffle) if stratified \
     else KFold(n_splits=n_splits, shuffle=shuffle)
 
-# First fit if not fitted yet
-# if not check_is_fitted(model):
-#     print("estimator is not fitted yet")
-#     sys.exit(0)
-
-# features_importance_dict = dict()
-# for i, (train, test) in enumerate(cv.split(df, y)):
-#     xgboost_model.fit(df.iloc[train].values, y[train])
-#     importance_df = compute_feature_importance_for_fitted_model(xgboost_model)
-#     features_importance_dict[i] = importance_df['features_importance']
-
-# empty_df = pd.DataFrame({})
-
-
 # TODO: add check if quantile has features in it
-metric = 'accuracy'
-
-feature_class = feature_selection_by_importance(X, y, metric, quantiles_number, cv, model)
+#TODO: combine all function with xgboost model and desicion tree
+# metric = 'accuracy'
+# recall_score, f1_score
+metric = 'f1'
+feature_class = FeatureSelectionByImportance(X, y, metric, quantiles_number, model, cv )
 feature_class.compute_feature_importance_by_percentile()
 feature_class.plot_feature_importance_across_quantiles(save_figure_in_path=True)
