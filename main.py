@@ -65,7 +65,7 @@ dataset = read_covtype_dataset(data_dir)
 df = dataset.data
 y = dataset.target
 
-small_db = False
+small_db = True
 X = df.iloc[:1000] if small_db else df
 y = y[:1000] if small_db else y
 
@@ -98,15 +98,16 @@ cv = StratifiedKFold(n_splits=n_splits, shuffle=shuffle) if stratified \
 # TODO: combine all function with xgboost model and desicion tree VVVV
 # TODO: maybe create package which you dont need to create instance and
 #  only return objects hceck with gpt what is better VVV
-# TODO : fix return mean std of feature importacne
+# TODO : fix return mean std of feature importacne  VVVVV
+# TODO: write all docstrings with gpt
 # TODO: chose another data set with high dimentionality
 metric = 'f1'
-split_to_validation = False
+split_to_validation = True
 
 for model in models:
     model.fit(X, y)
-    plot_basic_feature_importance(model)
-    x_axis_labels, mean_trains, std_trains, mean_tests, std_tests, features_importance = compute_feature_importance_by_percentile(
+    # plot_basic_feature_importance(model)
+    x_axis_labels, scores, features_importance = compute_feature_importance_by_percentile(
         model=model,
         cv=cv,
         df=X,
@@ -117,10 +118,7 @@ for model in models:
     )
 
     plot_feature_importance_across_quantiles(
-        mean_trains=mean_trains,
-        std_trains=std_trains,
-        mean_tests=mean_tests,
-        std_tests=std_tests,
+        scores=scores,
         x_axis_labels=x_axis_labels,
         quantiles_number=quantiles_number,
         metric='f1',
