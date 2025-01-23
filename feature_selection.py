@@ -18,6 +18,8 @@ valid_models = [RandomForestClassifier,
                 DecisionTreeClassifier,
                 XGBClassifier]
 
+supported_metrics = ['f1', 'accuracy', 'recall', 'precision']
+
 __all__ = ['compute_feature_importance_by_percentile', 'plot_feature_importance_across_quantiles']
 
 
@@ -26,6 +28,12 @@ def _check_is_model_fitted(method):
     def wrapper(*args, **kwargs):
         if not hasattr(kwargs['model'], 'feature_importances_'):
             raise ValueError(f"The model must be fitted before calling `{method.__name__}`.")
+        if not isinstance(kwargs['df'], pd.DataFrame):
+            raise ValueError(f"train data (df) must be type of pd.DataFrame not {type(kwargs['df'])}")
+        if not isinstance(kwargs['y'], pd.Series):
+            raise ValueError(f"label data must be type of pd.Series not {type(kwargs['y'])}")
+        if kwargs['metric'] not in supported_metrics:
+            raise ValueError(f"Selected metric {kwargs['metric']} must be one of {[i for i in supported_metrics]}")
         return method(*args, **kwargs)
 
     return wrapper
@@ -46,7 +54,7 @@ def _check_model_type(model):
     return model
 
 
-@_check_is_model_fitted
+@_check_is_model_fitted  # @_validate_inputs
 def compute_feature_importance_by_percentile(cv: BaseCrossValidator,
                                              model,
                                              df: pd.DataFrame,
