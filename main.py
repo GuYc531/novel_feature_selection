@@ -59,18 +59,19 @@ def plot_basic_feature_importance(model) -> None:
     plt.xticks(rotation=45)
     plt.show()
 
+def initialize_data_set(small_db=False):
+    dataset = read_covtype_dataset(data_dir)
+    df = dataset.data
+    y = dataset.target
 
-dataset = read_covtype_dataset(data_dir)
-# dataset  = datasets.read_
-df = dataset.data
-y = dataset.target
+    X = df.iloc[:1000] if small_db else df
+    y = y[:1000] if small_db else y
 
-small_db = True
-X = df.iloc[:1000] if small_db else df
-y = y[:1000] if small_db else y
+    y = pd.Series([i - 1 for i in y])  # change labels from 1 to 7 to 0 to 6
+    return X, y
 
-y = pd.Series([i - 1 for i in y])  # change labels from 1 to 7 to 0 to 6
-describe_dataset(df, y)
+X, y = initialize_data_set(small_db=True)
+describe_dataset(X, y)
 
 # choose your best hyperparameters based on grid search
 xgboost_model = XGBClassifier(**configs.xgboost_hyperparametes)
@@ -82,24 +83,13 @@ models = [xgboost_model,
           decision_tree_model]
 
 model = xgboost_model
-
 quantiles_number = 5
 
-# for model in models:
-# first we fit the model with all features to get general feature importance
 
-stratified = True
-shuffle = True
-n_splits = 5
-
+stratified, shuffle, n_splits = True, True, 5
 cv = StratifiedKFold(n_splits=n_splits, shuffle=shuffle) if stratified \
     else KFold(n_splits=n_splits, shuffle=shuffle)
 
-# TODO: combine all function with xgboost model and desicion tree VVVV
-# TODO: maybe create package which you dont need to create instance and
-#  only return objects hceck with gpt what is better VVV
-# TODO : fix return mean std of feature importacne  VVVVV
-# TODO: write all docstrings with gpt
 # TODO: chose another data set with high dimentionality
 metric = 'f1'
 split_to_validation = True
@@ -123,4 +113,5 @@ for model in models:
         quantiles_number=quantiles_number,
         metric='f1',
         model=model,
-        save_figure_in_path=True)
+        save_figure_in_path=True,
+        path='plots/')
