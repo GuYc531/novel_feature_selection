@@ -1,4 +1,3 @@
-
 xgboost_hyperparametes = {
     'objective': 'binary:logistic',
     'gamma': 7,
@@ -16,4 +15,13 @@ random_forest_hyperparameters = {
     'min_samples_split': 5,
     'n_estimators': 30,
     'max_leaf_nodes': 10
+}
+
+decision_tree_hyperparameters = {
+    "criterion": "entropy",
+    "splitter": "best",
+    "max_depth": 10,
+    "min_samples_split": 0.3,
+    "min_samples_leaf": 5,
+    "max_features": "sqrt"
 }

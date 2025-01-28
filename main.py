@@ -1,16 +1,10 @@
-import os
-import pickle
-import zipfile
-from typing import Tuple
 import kagglehub
 
 import matplotlib.pyplot as plt
 import pandas as pd
-from sklearn import datasets
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import StratifiedKFold, KFold
 from sklearn.tree import DecisionTreeClassifier
-from sklearn.utils._bunch import Bunch
 from xgboost import XGBClassifier
 
 import configs
@@ -19,6 +13,7 @@ from feature_selection import compute_feature_importance_by_percentile, plot_fea
 
 data_dir = r'data/'
 
+#TODO: write a medium post about this framework
 
 def describe_dataset(df: pd.DataFrame, y: pd.Series) -> None:
     """
@@ -63,7 +58,7 @@ describe_dataset(X, y)
 # choose your best hyperparameters based on grid search
 xgboost_model = XGBClassifier(**configs.xgboost_hyperparametes)
 random_forest_model = RandomForestClassifier(**configs.random_forest_hyperparameters)
-decision_tree_model = DecisionTreeClassifier()
+decision_tree_model = DecisionTreeClassifier(**configs.decision_tree_hyperparameters)
 
 models = [xgboost_model,
           random_forest_model,
