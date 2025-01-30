@@ -9,7 +9,7 @@ from xgboost import XGBClassifier
 
 import configs
 from feature_selection import compute_feature_importance_by_percentile, plot_feature_importance_across_quantiles, \
-    _compute_feature_importance_df
+    _compute_feature_importance_df, check_for_statistical_differance
 
 data_dir = r'data/'
 
@@ -53,6 +53,8 @@ def load_smoking_drinking_dataset():
 
 
 X, y = load_smoking_drinking_dataset()
+X = X.iloc[:1000]
+y = y.iloc[:1000]
 describe_dataset(X, y)
 
 # choose your best hyperparameters based on grid search
@@ -65,7 +67,7 @@ models = [xgboost_model,
           decision_tree_model]
 
 model = xgboost_model
-quantiles_number = 5
+quantiles_number = 4
 
 stratified, shuffle, n_splits = True, True, 5
 cv = StratifiedKFold(n_splits=n_splits, shuffle=shuffle) if stratified \
@@ -77,6 +79,8 @@ split_to_validation = True
 for model in models:
     model.fit(X, y)
     plot_basic_feature_importance(model)
+
+    # need to return scores not as mean and std else as the whole series
     x_axis_labels, scores, features_importance = compute_feature_importance_by_percentile(
         model=model,
         cv=cv,
@@ -86,6 +90,8 @@ for model in models:
         quantiles_number=quantiles_number,
         metric=metric
     )
+
+    dict_statistical_differance = check_for_statistical_differance(scores)
 
     plot_feature_importance_across_quantiles(
         scores=scores,

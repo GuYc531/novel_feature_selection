@@ -34,7 +34,7 @@ This repository provides a framework for performing feature selection using tree
 
 ## Usage
 
-### There is main.py file you can use but here is basic example:
+There is main.py file you can use but here is basic examples:
 
 ### 1. Compute Feature Importance by Percentile
 
@@ -63,7 +63,19 @@ x_axis_labels, scores, final_features_importance_df = compute_feature_importance
 
 ---
 
-### 2. Plot Feature Importance Across Quantiles
+### 2. Check For Statistical Differance Across Quantiles Per Evaluation Part
+
+```python
+from feature_selection import check_for_statistical_differance
+
+dict_statistical_differance = check_for_statistical_differance(
+   scores=scores)
+
+```
+
+---
+
+### 3. Plot Feature Importance Across Quantiles
 
 ```python
 from feature_selection import plot_feature_importance_across_quantiles
@@ -89,6 +101,17 @@ Evaluates the performance of a machine learning model by filtering features base
 - Performance scores (mean/std for train/test/validation splits)
 - A DataFrame of feature importance values
 
+### `check_for_statistical_differance`
+Performs statistical tests to check for differences between sets of metric scores across multiple quantiles.
+
+This function evaluates the statistical significance of differences in metric scores across various quantiles of
+train, test, and validation folds, depending on whether the data follows a normal distribution or not.
+Output:
+
+- dictionary of compared quantile metric results like:
+{'train':'quantaile_0_quantaile_1': 'Not Significant' ...}
+- meaning, there is no statistical differance between the train scores between quantile 0 and quantile 1.
+
 ### `plot_feature_importance_across_quantiles`
 Generates a bar plot showing the relationship between feature importance percentiles and model performance metrics.
 
@@ -106,7 +129,8 @@ Generates a bar plot showing the relationship between feature importance percent
 - scikit-learn
 - xgboost
 - matplotlib
-- tqdm
+- tqdm 
+- scipy
 
 ---
 

@@ -2,6 +2,7 @@ from typing import Tuple
 
 import numpy as np
 import pandas as pd
+from scipy.stats import shapiro
 from sklearn.metrics import f1_score, recall_score, accuracy_score, precision_score
 from sklearn.model_selection import train_test_split, KFold, StratifiedKFold, BaseCrossValidator
 
@@ -245,8 +246,7 @@ def _compute_cv_metric_score(percentile_x: pd.DataFrame,
                              model,
                              split_to_validation: bool = False,
                              validation_size: float = 0.2,
-                             metric: str = 'f1') -> Tuple[
-    dict[str, np.floating], dict[str, np.floating], dict[str, list]]:
+                             metric: str = 'f1') -> Tuple[dict[str, np.floating], dict[str, list]]:
     """
     Computes cross-validation metrics for the specified model and returns mean and standard deviation scores
     for specified evaluation parts (train, test, validation).
@@ -268,10 +268,9 @@ def _compute_cv_metric_score(percentile_x: pd.DataFrame,
         metric (str, optional): The metric to compute. Options are 'accuracy', 'precision', 'recall', 'f1'. Defaults to 'f1'.
 
     Returns:
-        Tuple[dict[str, np.floating], dict[str, np.floating], dict[str, list]]:
+        Tuple[dict[str, np.floating], dict[str, list]]:
             - A tuple containing:
-                - `metric_mean_score`: A dictionary with mean scores for each evaluation part (train, test, validation).
-                - `metric_std_score`: A dictionary with standard deviation scores for each evaluation part.
+                - `metric_mean_score`: A dictionary with scores for each evaluation part (train, test, validation).
                 - `features_importance`: A dictionary containing the feature importance values for each fold.
 
     Notes:
@@ -332,19 +331,16 @@ def _compute_cv_metric_score(percentile_x: pd.DataFrame,
             except NameError:
                 print(f" x_validation or y_validation or metric_list_validation are not defined")
 
-    metric_mean_score = {'train': np.mean(metric_list_train),
-                         'test': np.mean(metric_list_test)}
-    metric_std_score = {'train': np.std(metric_list_train),
-                        'test': np.std(metric_list_test)}
+    metric_mean_score = {'train': metric_list_train,
+                         'test': metric_list_test}
 
     if split_to_validation:
         try:
-            metric_mean_score['validation'] = np.mean(metric_list_validation)
-            metric_std_score['validation'] = np.std(metric_list_validation)
+            metric_mean_score['validation'] = metric_list_validation
         except NameError:
             print(f"metric_list_validation is not defined")
 
-    return metric_mean_score, metric_std_score, features_importance
+    return metric_mean_score, features_importance
 
 
 def _check_for_valid_quantiles_number(quantiles_number: int, df: pd.DataFrame) -> None:
@@ -370,3 +366,36 @@ def _check_for_valid_quantiles_number(quantiles_number: int, df: pd.DataFrame) -
     if df.shape[1] < quantiles_number:
         raise ValueError(
             f"number of quantiles selected needs to be higher than the number of features in the dataset selected")
+
+
+def _check_for_normal_distribution(series: list, alpha: float):
+    """
+    Checks if a given series of data follows a normal distribution using the Shapiro-Wilk test.
+
+    The function applies the Shapiro-Wilk test to assess the normality of the input data. If the p-value
+    is greater than the specified significance level (`alpha`), the data is considered to follow a normal
+    distribution. Otherwise, it is considered non-normal.
+
+    Parameters:
+    ----------
+    series : list
+        A list of numeric values representing the data to be tested for normality.
+
+    alpha : float
+        The significance level for the test. If the p-value is greater than this threshold,
+        the data is considered normally distributed.
+
+    Returns:
+    --------
+    bool
+        Returns True if the data follows a normal distribution (p-value > alpha),
+        and False otherwise (p-value <= alpha).
+
+    Example:
+    --------
+    data = [1.2, 2.3, 3.1, 4.0, 5.1]
+    result = _check_for_normal_distribution(data, alpha=0.05)
+    print(result)  # True or False based on the normality test
+    """
+    stat, p_value = shapiro(series)
+    return True if p_value > alpha else False

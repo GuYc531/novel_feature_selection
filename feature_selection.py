@@ -1,9 +1,12 @@
 import os
 from typing import Tuple, List
+from itertools import combinations
 
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
+from scipy.stats import ttest_rel, mannwhitneyu, levene
+
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import BaseCrossValidator
 from functools import wraps
@@ -14,7 +17,7 @@ from tqdm import tqdm
 
 from feature_selection_utils import _compute_cv_metric_score, _compute_feature_importance_df, \
     _extract_model_name, _set_cross_validation_policy, _compute_quantile_and_relevant_df, \
-    _check_for_valid_quantiles_number
+    _check_for_valid_quantiles_number, _check_for_normal_distribution
 
 valid_models = [RandomForestClassifier,
                 DecisionTreeClassifier,
@@ -22,7 +25,15 @@ valid_models = [RandomForestClassifier,
 
 supported_metrics = ['f1', 'accuracy', 'recall', 'precision']
 
-__all__ = ['compute_feature_importance_by_percentile', 'plot_feature_importance_across_quantiles']
+__all__ = ['compute_feature_importance_by_percentile', 'plot_feature_importance_across_quantiles',
+           'check_for_statistical_differance']
+
+TRAIN_MEAN_KEY = 'mean_trains'
+TRAIN_STD_KEY = 'std_trains'
+TEST_MEAN_KEY = 'mean_tests'
+TEST_STD_KEY = 'std_tests'
+VALIDATION_MEAN_KEY = 'mean_validation'
+VALIDATION_STD_KEY = 'std_validation'
 
 
 def _validate_inputs(method):
@@ -171,8 +182,7 @@ def compute_feature_importance_by_percentile(cv: BaseCrossValidator,
         Tuple[list[str], dict[str, list[np.floating]], pd.DataFrame]:
             - A list of x-axis labels indicating the number of features and
               the corresponding percentile.
-            - A dictionary containing lists of mean and standard deviation
-              of the metric for train, test, and optionally validation splits.
+            - A dictionary containing lists of scores metric for train, test, and optionally validation splits.
             - A DataFrame containing the feature importance data across all quantiles.
 
     Raises:
@@ -226,43 +236,82 @@ def compute_feature_importance_by_percentile(cv: BaseCrossValidator,
 
         x_axis_labels.append(f'{len(percentile_x.columns)}, {round(quantile, 2)}')
 
-        mean, std, features_importance = _compute_cv_metric_score(percentile_x=percentile_x,
-                                                                  y=y,
-                                                                  evaluation_parts=evaluation_parts,
-                                                                  cv=cv,
-                                                                  model=model,
-                                                                  metric=metric,
-                                                                  split_to_validation=split_to_validation)
+        mean, features_importance = _compute_cv_metric_score(percentile_x=percentile_x,
+                                                             y=y,
+                                                             evaluation_parts=evaluation_parts,
+                                                             cv=cv,
+                                                             model=model,
+                                                             metric=metric,
+                                                             split_to_validation=split_to_validation)
 
         mean_trains.append(mean['train'])
-        std_trains.append(std['train'])
         mean_tests.append(mean['test'])
-        std_tests.append(std['test'])
 
         if split_to_validation:
             mean_validation.append(mean['test'])
-            std_validation.append(std['test'])
 
         final_features_importance_df = pd.DataFrame.from_dict(features_importance) if index == 0 else pd.concat(
             [final_features_importance_df, pd.DataFrame.from_dict(features_importance)],
             ignore_index=True, axis=0)
 
     scores = {
-        'mean_trains': mean_trains,
-        'std_trains': std_trains,
-        'mean_tests': mean_tests,
-        'std_tests': std_tests
+        f'{TRAIN_MEAN_KEY}': mean_trains,
+        f'{TEST_MEAN_KEY}': mean_tests,
     }
     if split_to_validation:
-        scores['mean_validation'] = mean_validation
-        scores['std_validation'] = std_validation
+        scores[f'{VALIDATION_MEAN_KEY}'] = mean_validation
 
     return x_axis_labels, scores, final_features_importance_df
 
 
-def _validate_path(path:str) -> None:
+def _validate_path(path: str) -> None:
     if not os.path.exists(path):
         raise ValueError(f"Given path {path} does not exists in directory ")
+
+
+def _extract_means_and_std_from_series(scores: dict) -> dict:
+    """
+    Extracts the mean and standard deviation for train, test, and optional validation scores
+    from a dictionary of lists and returns a summary dictionary.
+
+    This function processes a `scores` dictionary that contains lists of numerical values for
+    train, test, and optionally validation datasets. It computes the mean and standard deviation
+    for each key and stores the results in a new summary dictionary.
+
+    Args:
+        scores (dict): A dictionary containing lists of numerical values for keys:
+            - `TRAIN_MEAN_KEY`: Train scores for mean calculation.
+            - `TEST_MEAN_KEY`: Test scores for mean calculation.
+            - `VALIDATION_MEAN_KEY` (optional): Validation scores for mean calculation.
+
+    Returns:
+        dict: A dictionary containing the calculated means and standard deviations for train, test,
+        and validation datasets. The keys in the returned dictionary are:
+            - `TRAIN_MEAN_KEY`: List of mean train scores.
+            - `TRAIN_STD_KEY`: List of standard deviation train scores.
+            - `TEST_MEAN_KEY`: List of mean test scores.
+            - `TEST_STD_KEY`: List of standard deviation test scores.
+            - `VALIDATION_MEAN_KEY` (optional): List of mean validation scores (if present in input).
+            - `VALIDATION_STD_KEY` (optional): List of standard deviation validation scores.
+
+    Notes:
+        - This function assumes the constants `TRAIN_MEAN_KEY`, `TRAIN_STD_KEY`, `TEST_MEAN_KEY`,
+          `TEST_STD_KEY`, `VALIDATION_MEAN_KEY`, and `VALIDATION_STD_KEY` are predefined.
+        - Lists in the input dictionary should contain numerical values.
+
+    """
+    dict_of_summary = dict()
+
+    dict_of_summary[TRAIN_MEAN_KEY] = [np.mean(i) for i in scores[TRAIN_MEAN_KEY]]
+    dict_of_summary[TRAIN_STD_KEY] = [np.std(i) for i in scores[TRAIN_MEAN_KEY]]
+    dict_of_summary[TEST_MEAN_KEY] = [np.mean(i) for i in scores[TEST_MEAN_KEY]]
+    dict_of_summary[TEST_STD_KEY] = [np.std(i) for i in scores[TEST_MEAN_KEY]]
+
+    if VALIDATION_MEAN_KEY in scores.keys():
+        dict_of_summary[VALIDATION_MEAN_KEY] = [np.mean(i) for i in scores[VALIDATION_MEAN_KEY]]
+        dict_of_summary[VALIDATION_STD_KEY] = [np.std(i) for i in scores[VALIDATION_MEAN_KEY]]
+
+    return dict_of_summary
 
 
 def plot_feature_importance_across_quantiles(
@@ -329,6 +378,9 @@ def plot_feature_importance_across_quantiles(
     model_name = _extract_model_name(model=model)
     x_axis = np.arange(quantiles_number)
     fig = plt.figure()
+
+    scores = _extract_means_and_std_from_series(scores)
+
     plt.bar(x_axis - 0.3, scores['mean_trains'], 0.3, label='Train', color='white', edgecolor='black',
             yerr=scores['std_trains'])
     plt.bar(x_axis, scores['mean_tests'], 0.3, label='Test', color='grey', edgecolor='black', yerr=scores['std_tests'])
@@ -350,3 +402,75 @@ def plot_feature_importance_across_quantiles(
         plt.savefig(f'{path}feature_selection_figure_{model_name}.png')
     plt.show()
     plt.close()
+
+
+def _validate_scores(method):
+    @wraps(method)
+    def wrapper(*args, **kwargs):
+        if not isinstance(args[0], dict):
+            raise TypeError(f"The scores object {args[0].__name__} must be of type dict")
+        if TRAIN_MEAN_KEY not in args[0].keys():
+            raise TypeError(f"The scores dictionary have to have key of 'train'")
+        if TEST_MEAN_KEY not in args[0].keys():
+            raise TypeError(f"The scores dictionary have to have key of 'test'")
+        return method(*args, **kwargs)
+
+    return wrapper
+
+
+@_validate_scores
+def check_for_statistical_differance(scores: dict, alpha: float = 0.05):
+    """
+    Performs statistical tests to check for differences between sets of metric scores across multiple quantiles.
+
+    This function evaluates the statistical significance of differences in metric scores across various quantiles of
+    train, test, and validation folds, depending on whether the data follows a normal distribution or not.
+
+    It performs comparisons between the different quantiles and applies either the paired t-test or the
+    Mann-Whitney U test, depending on the normality of the data. The results are returned as a dictionary indicating
+    whether each comparison is statistically significant.
+
+    Parameters:
+    ----------
+    scores : dict
+        A dictionary where keys represent different metrics or sets of results, and values are lists of metric scores
+        for different quantiles (train/test/validation folds).
+
+    alpha : float, optional, default=0.05
+        The significance level for statistical tests. A p-value below this threshold will indicate a significant
+        difference.
+
+    Returns:
+    --------
+    dict_statistical_differance : dict
+        A dictionary where the keys are the same as the input `scores` dictionary, and each key contains a nested
+        dictionary with pairwise quantile comparisons and their corresponding significance results
+        ('Significant' or 'Not Significant').
+
+    Example:
+    --------
+    scores = {
+        'train': [[quantile1_scores], [quantile2_scores], [quantile3_scores]],
+        'test': [[quantile1_scores], [quantile2_scores]]
+    }
+    result = check_for_statistical_differance(scores)
+    print(result)  # {'train': {'quantile_0_quantile_1': 'Not Significant', ...}, 'test': {...}}
+    """
+    dict_statistical_differance = dict()
+    for key, series_of_metric_all_quantiles in scores.items():
+        dict_statistical_differance[key] = dict()
+
+        # check for normal distribution per all train/test/validation quantiles --> folds scores
+        is_all_normal = np.min(
+            [_check_for_normal_distribution(series=i, alpha=alpha) for i in series_of_metric_all_quantiles])
+
+        for (i, list1), (j, list2) in combinations(enumerate(series_of_metric_all_quantiles), 2):
+            if i == j:
+                continue
+
+            _, p_value = ttest_rel(list1, list2) if is_all_normal else mannwhitneyu(list1, list2)
+
+            dict_statistical_differance[key].update(
+                {f'quantile_{i}_quantile_{j}': 'Significant' if p_value < alpha else 'Not Significant'})
+
+    return dict_statistical_differance
