@@ -400,7 +400,7 @@ def plot_feature_importance_across_quantiles(
     if save_figure_in_path:
         _validate_path(path)
         plt.savefig(f'{path}feature_selection_figure_{model_name}.png')
-    plt.show()
+    # plt.show()
     plt.close()
 
 

@@ -13,7 +13,6 @@ from feature_selection import compute_feature_importance_by_percentile, plot_fea
 
 data_dir = r'data/'
 
-#TODO: write a medium post about this framework
 
 def describe_dataset(df: pd.DataFrame, y: pd.Series) -> None:
     """
@@ -53,8 +52,7 @@ def load_smoking_drinking_dataset():
 
 
 X, y = load_smoking_drinking_dataset()
-X = X.iloc[:1000]
-y = y.iloc[:1000]
+
 describe_dataset(X, y)
 
 # choose your best hyperparameters based on grid search
@@ -73,12 +71,12 @@ stratified, shuffle, n_splits = True, True, 5
 cv = StratifiedKFold(n_splits=n_splits, shuffle=shuffle) if stratified \
     else KFold(n_splits=n_splits, shuffle=shuffle)
 
-metric = 'f1'
+metric = 'recall'
 split_to_validation = True
 
 for model in models:
     model.fit(X, y)
-    plot_basic_feature_importance(model)
+    # plot_basic_feature_importance(model)
 
     # need to return scores not as mean and std else as the whole series
     x_axis_labels, scores, features_importance = compute_feature_importance_by_percentile(
