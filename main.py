@@ -11,16 +11,8 @@ import configs
 from feature_selection import compute_feature_importance_by_percentile, plot_feature_importance_across_quantiles, \
     _compute_feature_importance_df, check_for_statistical_differance
 
-data_dir = r'data/'
-
 
 def describe_dataset(df: pd.DataFrame, y: pd.Series) -> None:
-    """
-
-    :param df:
-    :param y:
-    :return:
-    """
     # describe data
     print(f"total features = {len(df.columns)}")
     print(f"total observations = {df.shape[0]}")
@@ -64,7 +56,6 @@ models = [xgboost_model,
           random_forest_model,
           decision_tree_model]
 
-model = xgboost_model
 quantiles_number = 4
 
 stratified, shuffle, n_splits = True, True, 5
