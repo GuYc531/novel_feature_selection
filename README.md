@@ -14,7 +14,7 @@ This repository provides a framework for performing feature selection using tree
 - **Cross-Validation Support**: Incorporates flexible cross-validation policies for model evaluation.
 - **Visualization**: Generates bar plots to visualize feature importance and model performance across quantiles.
 - **Robust Input Validation**: Ensures proper inputs for models, metrics, and datasets.
-- **Support for Multiple Models**: Compatible with tree-based models like `RandomForestClassifier`, `DecisionTreeClassifier`, and `XGBClassifier`.
+- **Support for Multiple Models**: Compatible with tree-based models like `RandomForestClassifier`,`GradientBoostingRegressor`, `DecisionTreeClassifier`,`XGBClassifier` and more (check valid_models).
 
 ---
 
@@ -116,9 +116,11 @@ Output:
 Generates a bar plot showing the relationship between feature importance percentiles and model performance metrics.
 
 ## Supported Models
-- `RandomForestClassifier` (sklearn)
-- `DecisionTreeClassifier` (sklearn)
-- `XGBClassifier` (XGBoost)
+- `RandomForestClassifier`, `RandomForestRegressor` (sklearn)
+- `DecisionTreeClassifier`, `DecisionTreeRegressor` (sklearn)
+- `GradientBoostingClassifier`, `GradientBoostingRegressor` (sklearn) 
+- `XGBClassifier`,`XGBRegressor` (XGBoost)
+
 
 ---
 

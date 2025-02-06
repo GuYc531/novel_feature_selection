@@ -7,23 +7,27 @@ import pandas as pd
 from matplotlib import pyplot as plt
 from scipy.stats import ttest_rel, mannwhitneyu, levene
 
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import (RandomForestClassifier, RandomForestRegressor, GradientBoostingRegressor,
+                              GradientBoostingClassifier)
 from sklearn.model_selection import BaseCrossValidator
 from functools import wraps
 
-from sklearn.tree import DecisionTreeClassifier
-from xgboost import XGBClassifier
+from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
+from xgboost import XGBClassifier, XGBRegressor
 from tqdm import tqdm
 
 from feature_selection_utils import _compute_cv_metric_score, _compute_feature_importance_df, \
     _extract_model_name, _set_cross_validation_policy, _compute_quantile_and_relevant_df, \
     _check_for_valid_quantiles_number, _check_for_normal_distribution
 
-valid_models = [RandomForestClassifier,
-                DecisionTreeClassifier,
-                XGBClassifier]
+valid_models = [RandomForestClassifier, RandomForestRegressor,
+                DecisionTreeClassifier, DecisionTreeRegressor,
+                XGBClassifier, XGBRegressor,
+                GradientBoostingRegressor, GradientBoostingClassifier]
 
-supported_metrics = ['f1', 'accuracy', 'recall', 'precision']
+classification_supported_metrics = ['f1', 'accuracy', 'recall', 'precision']
+
+regression_supported_metrics = ['mape', 'mse', 'explained_var', 'r_squared', 'rmse', 'mae']
 
 __all__ = ['compute_feature_importance_by_percentile', 'plot_feature_importance_across_quantiles',
            'check_for_statistical_differance']
@@ -46,7 +50,9 @@ def _validate_inputs(method):
     - The `model` argument must have the attributes `feature_importances_` and `feature_names_in_`.
     - The `df` argument must be of type `pd.DataFrame`.
     - The `y` argument must be of type `pd.Series`.
-    - The `metric` argument must be one of the supported metrics.
+    - The `metric` argument must be one of:
+        if the model is classifier the classification supported metrics.
+        if the model is regressor the regression supported metrics.
 
     Parameters:
         method (callable): The method to be wrapped and validated.
@@ -90,8 +96,20 @@ def _validate_inputs(method):
             raise ValueError(f"train data (df) must be type of pd.DataFrame not {type(kwargs['df'])}")
         if not isinstance(kwargs['y'], pd.Series):
             raise ValueError(f"label data must be type of pd.Series not {type(kwargs['y'])}")
-        if kwargs['metric'] not in supported_metrics:
-            raise ValueError(f"Selected metric {kwargs['metric']} must be one of {[i for i in supported_metrics]}")
+        if 'Classifier' in type(kwargs['model']).__name__:
+            if kwargs['metric'] not in classification_supported_metrics:
+                raise ValueError(
+                    f"Selected metric {kwargs['metric']} must be one of {[i for i in classification_supported_metrics]}")
+        elif 'Regressor' in type(kwargs['model']).__name__:
+            if kwargs['metric'] not in regression_supported_metrics:
+                raise ValueError(
+                    f"Selected metric {kwargs['metric']} must be one of {[i for i in regression_supported_metrics]}")
+        else:
+            raise ValueError(f"unmatching metric {kwargs['metric']} to model {type(kwargs['model']).__name__}.")
+
+        if kwargs['split_to_validation'] is True and 'validation_size' not in kwargs.keys():
+            raise ValueError(
+                f"In case of setting split_to_validation to True you have to provide validation_size as float")
         return method(*args, **kwargs)
 
     return wrapper
@@ -151,6 +169,7 @@ def compute_feature_importance_by_percentile(cv: BaseCrossValidator,
                                              df: pd.DataFrame,
                                              y: pd.Series,
                                              split_to_validation: bool = False,
+                                             validation_size: float = 0.1,
                                              quantiles_number: int = 5,
                                              evaluation_parts: List[str] = ['train', 'test'],
                                              metric: str = 'f1'
@@ -171,6 +190,8 @@ def compute_feature_importance_by_percentile(cv: BaseCrossValidator,
         y (pd.Series): The target labels corresponding to the dataset.
         split_to_validation (bool, optional): Whether to include a validation set
             in addition to train and test splits. Defaults to False.
+        validation_size (float, optinal): States what size of validation data to take out
+            from the cross validation. Defaults to 0.1.
         quantiles_number (int, optional): The number of percentiles to split
             feature importance into. Defaults to 5.
         evaluation_parts (List[str], optional): Parts of the dataset to evaluate
@@ -242,6 +263,7 @@ def compute_feature_importance_by_percentile(cv: BaseCrossValidator,
                                                              cv=cv,
                                                              model=model,
                                                              metric=metric,
+                                                             validation_size=validation_size,
                                                              split_to_validation=split_to_validation)
 
         mean_trains.append(mean['train'])
@@ -400,7 +422,7 @@ def plot_feature_importance_across_quantiles(
     if save_figure_in_path:
         _validate_path(path)
         plt.savefig(f'{path}feature_selection_figure_{model_name}.png')
-    # plt.show()
+    plt.show()
     plt.close()
 
 

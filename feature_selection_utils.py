@@ -2,8 +2,10 @@ from typing import Tuple
 
 import numpy as np
 import pandas as pd
+from fontTools.ttLib.tables.otTables import DeltaSetIndexMap
 from scipy.stats import shapiro
-from sklearn.metrics import f1_score, recall_score, accuracy_score, precision_score
+from sklearn.metrics import f1_score, recall_score, accuracy_score, precision_score, mean_absolute_error, \
+    mean_squared_error, root_mean_squared_error, mean_absolute_percentage_error, explained_variance_score, r2_score
 from sklearn.model_selection import train_test_split, KFold, StratifiedKFold, BaseCrossValidator
 
 
@@ -141,10 +143,10 @@ def _compute_feature_importance_df(model) -> pd.DataFrame:
     return importance_df
 
 
-def _compute_prediction_metric(y_true: np.array,
-                               y_predictions: np.array,
-                               multi_label: bool = False,
-                               metric: str = 'f1') -> float:
+def _compute_classification_prediction_metric(y_true: np.array,
+                                              y_predictions: np.array,
+                                              multi_label: bool = False,
+                                              metric: str = 'f1') -> float:
     """
        Computes a specified prediction metric (accuracy, precision, recall, or f1) for model evaluation.
 
@@ -172,10 +174,10 @@ def _compute_prediction_metric(y_true: np.array,
        Example:
            >>> y_true = [0, 1, 1, 0]
            >>> y_predictions = [0, 1, 0, 1]
-           >>> _compute_prediction_metric(y_true, y_predictions, metric='accuracy')
+           >>> _compute_classification_prediction_metric(y_true, y_predictions, metric='accuracy')
            0.5
 
-           >>> _compute_prediction_metric(y_true, y_predictions, multi_label=True, metric='f1')
+           >>> _compute_classification_prediction_metric(y_true, y_predictions, multi_label=True, metric='f1')
            0.666...
 
        Notes:
@@ -192,6 +194,47 @@ def _compute_prediction_metric(y_true: np.array,
         return recall_score(y_true=y_true, y_pred=y_predictions, average=average)
     elif metric == 'f1':
         return f1_score(y_true=y_true, y_pred=y_predictions, average=average)
+    else:
+        raise ValueError(f"Selected metric {metric} should one of accuracy, precision, recall, f1")
+
+
+def _compute_regression_prediction_metric(y_true: np.array,
+                                          y_predictions: np.array,
+                                          metric: str = 'r_squared') -> float:
+    """
+       Computes a specified prediction metric ('mape','mse', 'explained_var','r_squared','rmse','mae') for model evaluation.
+
+       This function calculates one of the common regression metrics based on the given ground truth
+       (`y_true`) and predicted values (`y_predictions`).Given option to select the metric for evaluation.
+
+       Args:
+           y_true (np.array): Ground truth (correct) labels for the data.
+           y_predictions (np.array): Predicted labels by the model.
+           metric (str, optional): The metric to compute. Options are:
+               - 'accuracy': Computes accuracy score.
+               - 'precision': Computes precision score.
+               - 'recall': Computes recall score.
+               - 'f1': Computes F1 score. Defaults to 'f1'.
+
+       Returns:
+           float: The computed metric value.
+
+       Raises:
+           ValueError: If an invalid metric is selected (not one of 'mape','mse', 'explained_var','r_squared','rmse','mae').
+
+       """
+    if metric == 'mae':
+        return mean_absolute_error(y_true=y_true, y_pred=y_predictions)
+    elif metric == 'mse':
+        return mean_squared_error(y_true=y_true, y_pred=y_predictions)
+    elif metric == 'rmse':
+        return root_mean_squared_error(y_true=y_true, y_pred=y_predictions)
+    elif metric == 'mape':
+        return mean_absolute_percentage_error(y_true=y_true, y_pred=y_predictions)
+    elif metric == 'explained_var':
+        return explained_variance_score(y_true=y_true, y_pred=y_predictions)
+    elif metric == 'r_squared':
+        return r2_score(y_true=y_true, y_pred=y_predictions)
     else:
         raise ValueError(f"Selected metric {metric} should one of accuracy, precision, recall, f1")
 
@@ -310,10 +353,14 @@ def _compute_cv_metric_score(percentile_x: pd.DataFrame,
             evaluation_indexes = train if evaluation_part == 'train' else test
 
             predictions = model.predict(percentile_x.iloc[evaluation_indexes])
-            metric_score = _compute_prediction_metric(y_true=y.iloc[evaluation_indexes],
-                                                      y_predictions=predictions,
-                                                      multi_label=multi_label,
-                                                      metric=metric)
+            metric_score = _compute_classification_prediction_metric(y_true=y.iloc[evaluation_indexes],
+                                                                     y_predictions=predictions,
+                                                                     multi_label=multi_label,
+                                                                     metric=metric) if 'Classifier' in type(model).__name__ \
+                else _compute_regression_prediction_metric(
+                y_true=y.iloc[evaluation_indexes],
+                y_predictions=predictions,
+                metric=metric)
 
             if evaluation_part == 'train':
                 metric_list_train.append(metric_score)
@@ -323,10 +370,15 @@ def _compute_cv_metric_score(percentile_x: pd.DataFrame,
         if split_to_validation:
             try:
                 predictions = model.predict(x_validation)
-                metric_score = _compute_prediction_metric(y_true=y_validation,
-                                                          y_predictions=predictions,
-                                                          multi_label=multi_label,
-                                                          metric=metric)
+                metric_score = _compute_classification_prediction_metric(y_true=y_validation,
+                                                                         y_predictions=predictions,
+                                                                         multi_label=multi_label,
+                                                                         metric=metric) if 'Classifier' in type(model).__name__ \
+                    else _compute_regression_prediction_metric(
+                    y_true=y.iloc[evaluation_indexes],
+                    y_predictions=predictions,
+                    metric=metric)
+
                 metric_list_validation.append(metric_score)
             except NameError:
                 print(f" x_validation or y_validation or metric_list_validation are not defined")
